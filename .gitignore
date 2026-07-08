@@ -21,3 +21,7 @@ htmlcov/
 # project specific
 temp-test/
 data/
+
+# AI 
+AGENTS.md
+/skills
