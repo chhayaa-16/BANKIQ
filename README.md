@@ -30,15 +30,12 @@ The simulator is built for speed with heavy NumPy vectorization, Polars-native f
 
 ### Benchmarks (100k Customers, 24 Months, ~12M Transactions)
 
-| Hardware                          | Jobs | Mode                         | Wall Clock | Peak RAM   | CPU Utilization |
-| --------------------------------- | ---- | ---------------------------- | ---------- | ---------- | --------------- |
-| Ryzen 5 3550H, 8GB (laptop)       | 1    | sequential, pre-optimization | ~1670s (≈ 28 minutes)      | ~1.1GB     | ~100%           |
-| Ryzen 5 3550H, 8GB (laptop)       | 4    | streaming                    | **244s**   | ~1.2GB     | ~370%           |
-| AWS c7i.xlarge, 8GB (4 vCPU Xeon) | 4    | streaming                    | **208s**   | **2.57GB** | **372%**        |
-
-> The AWS c7i.xlarge run achieved 372% CPU utilization on 4 cores — near-perfect parallel efficiency with essentially zero coordination overhead between workers.
-
-> Peak RAM of 2.57GB for 100k customers means the simulator runs comfortably on any machine with 8GB RAM in streaming mode.
+| Hardware                            | Jobs | Mode                          | Simulation | Total Wall Clock  | Peak RAM   | CPU Utilization |
+| ----------------------------------- | ---- | ----------------------------- | ---------- | ----------------- | ---------- | ----------------|
+| Ryzen 5 3550H, 8GB (laptop)         | 1    | sequential, pre-optimization  |   —        | ~1670s (≈28 min)  | ~1.1GB     | ~100%           |
+| Ryzen 5 3550H, 8GB (laptop)         | 4    | streaming, Optimized          | **244.83** | **261.45s**       | ~2.5GB     | ~370%           |
+| AWS c7i.xlarge, 8GB (4 vCPU Xeon)   | 4    | streaming                     | ~190s      | **208s**          | **2.57GB** | **372%**        |
+| AWS c7i.2xlarge, 16GB (8 vCPU Xeon) | 8    | streaming                     | **103.68s**| **115.37s**       | -          | -               |
 
 - The simulator also supports a **non-streaming mode** for machines with sufficient RAM, which merges all monthly snapshots in-memory for faster execution at the cost of higher memory usage.
 
@@ -270,9 +267,5 @@ On machines with sufficient RAM, streaming can be disabled for faster in-memory 
 
 **Churn reasons** (priority order):
 
-```mermaid
-flowchart LR
-
-A[Loan default] --> B[Salary account lost] --> C[Service dissatisfaction] --> D[Account dormancy] --> E[Product disengagement] --> F[Service failure] --> G[Voluntary closure]
-```
+![Churn reason diagram](./assets/churn-reason-diagram.png)
 
