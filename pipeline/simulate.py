@@ -1029,6 +1029,174 @@ def run_simulation(
             else:
                 service_failures_2m[cid] = max(0, service_failures_2m[cid] - 1)
 
+        # Step 3.6: Process Current Accounts Independently
+        current_rng = np.random.default_rng(
+            config.seed + 100000 + month_idx
+        )
+
+        active_customer_map = {
+            c["customer_id"]: c for c in active_customers
+        }
+
+        current_accounts_this_month = [
+            acc
+            for acc in accounts
+            if acc["account_type"] == "Current"
+            and acc["account_status"] == "Active"
+            and acc["open_date"] <= snapshot_month
+            and acc["customer_id"] in active_customer_map
+        ]
+
+        current_account_by_customer = {
+            acc["customer_id"]: acc
+            for acc in current_accounts_this_month
+        }
+
+        current_customer_copies = []
+
+        for acc in current_accounts_this_month:
+            customer = dict(active_customer_map[acc["customer_id"]])
+            customer["account_id"] = acc["account_id"]
+            current_customer_copies.append(customer)
+
+        # Generate independent non-salary credits
+        current_credits = generate_monthly_non_salary_income(
+            current_customer_copies,
+            customer_events,
+            snapshot_month,
+            next_txn_id,
+            current_rng,
+        )
+        next_txn_id += len(current_credits)
+
+        # Generate independent debit transactions
+        current_debits = generate_monthly_regular_transactions(
+            current_customer_copies,
+            customer_events,
+            snapshot_month,
+            next_txn_id,
+            current_rng,
+        )
+        next_txn_id += len(current_debits)
+
+        current_txns_by_account = {
+            acc["account_id"]: []
+            for acc in current_accounts_this_month
+        }
+
+        for txn in current_credits:
+            account_id = txn["account_id"]
+            if account_id in current_txns_by_account:
+                current_txns_by_account[account_id].append(txn)
+
+        for txn in current_debits:
+            customer_id = txn["customer_id"]
+            acc = current_account_by_customer.get(customer_id)
+
+            if acc is not None:
+                txn["account_id"] = acc["account_id"]
+                current_txns_by_account[acc["account_id"]].append(txn)
+
+        # Process balances, fees and snapshots account by account
+        for acc in current_accounts_this_month:
+            account_id = acc["account_id"]
+            customer_id = acc["customer_id"]
+            customer = active_customer_map[customer_id]
+
+            start_balance = running_balances[account_id]
+            account_txns = current_txns_by_account[account_id]
+
+            # Apply monthly account fee where applicable
+            events = customer_events.get(customer_id, set())
+            is_fee_hike = "fee_hike_or_service_charge" in events
+
+            if is_fee_hike or current_rng.random() < 0.10:
+                fee_amount = (
+                    current_rng.uniform(100.0, 500.0)
+                    if is_fee_hike
+                    else current_rng.uniform(50.0, 150.0)
+                )
+
+                account_txns.append(
+                    generate_fee_or_charge(
+                        next_txn_id,
+                        customer_id,
+                        account_id,
+                        date(snapshot_month.year, snapshot_month.month, 28),
+                        fee_amount,
+                        customer["city"],
+                        customer["state"],
+                    )
+                )
+                next_txn_id += 1
+
+            account_txns.sort(key=lambda t: t["txn_timestamp"])
+
+            balance = start_balance
+            transaction_balances = []
+
+            for txn in account_txns:
+                if txn["direction"] == "Credit":
+                    balance += txn["amount"]
+                else:
+                    balance -= txn["amount"]
+
+                txn["balance_after_txn"] = round(balance, 2)
+                transaction_balances.append(balance)
+
+            running_balances[account_id] = round(balance, 2)
+
+            current_balance = round(balance, 2)
+            avg_balance = (
+                float(np.mean(transaction_balances))
+                if transaction_balances
+                else current_balance
+            )
+            min_balance = (
+                float(np.min(transaction_balances))
+                if transaction_balances
+                else current_balance
+            )
+            max_balance = (
+                float(np.max(transaction_balances))
+                if transaction_balances
+                else current_balance
+            )
+
+            credit_count = sum(
+                txn["direction"] == "Credit" for txn in account_txns
+            )
+            debit_count = sum(
+                txn["direction"] == "Debit" for txn in account_txns
+            )
+
+            account_snapshots.append(
+                {
+                    "account_id": account_id,
+                    "snapshot_month": snapshot_month,
+                    "current_balance": current_balance,
+                    "average_monthly_balance": round(avg_balance, 2),
+                    "min_balance_30d": round(min_balance, 2),
+                    "max_balance_30d": round(max_balance, 2),
+                    "deposit_count": credit_count,
+                    "withdrawal_count": debit_count,
+                    "debit_txn_count": debit_count,
+                    "credit_txn_count": credit_count,
+                    "fee_charged_amount": round(
+                        sum(
+                            txn["amount"]
+                            for txn in account_txns
+                            if txn["is_fee"]
+                        ),
+                        2,
+                    ),
+                    "salary_credit_amount": 0.0,
+                    "account_status": acc["account_status"],
+                }
+            )
+
+            monthly_txns.extend(account_txns)
+
         all_transactions.extend(monthly_txns)
 
         # Step 4: Batch Generate Activity & Digital Engagement Snapshots

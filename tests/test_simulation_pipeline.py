@@ -52,6 +52,33 @@ def test_simulation_outputs_exist(sim_results):
         )
 
 
+def test_every_current_account_has_a_snapshot(sim_results):
+    """Every generated Current account should have at least one monthly snapshot."""
+    _, results = sim_results
+
+    current_accounts = (
+        results["account_master"]
+        .filter(pl.col("account_type") == "Current")
+        .select("account_id")
+        .unique()
+    )
+
+    snapshot_accounts = (
+        results["account_monthly_snapshot"]
+        .select("account_id")
+        .unique()
+    )
+
+    missing_snapshots = current_accounts.join(
+        snapshot_accounts,
+        on="account_id",
+        how="anti",
+    )
+
+    assert missing_snapshots.is_empty(), (
+        f"{missing_snapshots.height} Current accounts have no monthly snapshot."
+    )
+
 def test_no_future_activity_post_churn(sim_results):
     """Verify the no-future-activity rule: no activity rows exist after churn_month."""
     _, results = sim_results
