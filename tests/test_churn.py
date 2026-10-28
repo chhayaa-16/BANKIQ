@@ -1,7 +1,8 @@
-"""Tests for the churn scoring module (generator/churn.py)."""
+﻿"""Tests for the churn scoring module (generator/churn.py)."""
 
 import numpy as np
-from config.personas import Persona
+from config.personas import CHURN_COMPONENT_WEIGHTS, Persona
+from config.constants import LOW_SENSITIVITY_CHURN_SLOPE
 from generator.churn import ChurnInput, calculate_churn
 
 
@@ -199,6 +200,39 @@ def test_normal_churn_reason_priorities():
     inp_fallback = ChurnInput(persona=Persona.SALARY_CORE, base_rate=10.0)
     res_fallback = calculate_churn(inp_fallback, rng, use_threshold=True)
     assert res_fallback.churn_reason == "Voluntary closure"
+
+
+def test_low_sensitivity_reduces_behavioral_risk():
+    """Low-sensitivity customers should have a smaller behavioral risk contribution."""
+    normal_input = ChurnInput(
+        persona=Persona.SALARY_CORE,
+        base_rate=0.1,
+        complaint_score=2.0,
+    )
+    low_sensitivity_input = ChurnInput(
+        persona=Persona.SALARY_CORE,
+        base_rate=0.1,
+        low_sensitivity_segment=True,
+        complaint_score=2.0,
+    )
+
+    normal_result = calculate_churn(
+        normal_input, np.random.default_rng(123), use_threshold=True
+    )
+    low_sensitivity_result = calculate_churn(
+        low_sensitivity_input, np.random.default_rng(123), use_threshold=True
+    )
+    expected_difference = (
+        (1.0 - LOW_SENSITIVITY_CHURN_SLOPE)
+        * 2.0
+        * CHURN_COMPONENT_WEIGHTS["complaint_score"]
+    )
+
+    assert low_sensitivity_result.churn_risk < normal_result.churn_risk
+    assert np.isclose(
+        normal_result.churn_risk - low_sensitivity_result.churn_risk,
+        expected_difference,
+    )
 
 
 def test_threshold_vs_bernoulli_churn():

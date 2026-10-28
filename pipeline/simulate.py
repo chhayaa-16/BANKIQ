@@ -1320,6 +1320,7 @@ def run_simulation(
             c_input = ChurnInput(
                 persona=persona,
                 base_rate=base_rate,
+                low_sensitivity_segment=spine_state[cid]["low_sensitivity_segment"],
                 event_score=float(len(customer_events[cid]) * 0.1),
                 trend_score=0.0,
                 product_score=float((10 - sum(product_holdings[cid].values())) / 10.0),

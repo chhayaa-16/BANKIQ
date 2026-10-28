@@ -34,3 +34,7 @@ FOIR_LIMITS = {"Personal Loan": 0.40, "Home Loan": 0.50}
 # Minimum loan amounts for FOIR checking
 MIN_PERSONAL_LOAN_AMOUNT: float = 50_000.0
 MIN_HOME_LOAN_AMOUNT: float = 2_000_000.0
+
+# Low-sensitivity customers respond less strongly to behavioral risk signals.
+# Provisional modeling assumption; validate against simulated churn outcomes.
+LOW_SENSITIVITY_CHURN_SLOPE: float = 0.75

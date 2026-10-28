@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import math
 from typing import Optional
 import numpy as np
-
+from config.constants import LOW_SENSITIVITY_CHURN_SLOPE
 from config.personas import (
     CHURN_COMPONENT_WEIGHTS,
     CHURN_THRESHOLDS,
@@ -29,6 +29,7 @@ class ChurnInput:
 
     # Raw scoring component values (unweighted)
     base_rate: float = 0.0
+    low_sensitivity_segment: bool = False
     event_score: float = 0.0
     trend_score: float = 0.0
     product_score: float = 0.0
@@ -114,7 +115,6 @@ def calculate_churn(
         or is_service_failure
         or is_voluntary_close
     )
-
     if has_hard_trigger:
         # Map reason based on priority rules (spec Section 10)
         if is_loan_default:
@@ -136,23 +136,27 @@ def calculate_churn(
             churn_prob=1.0,
             churn_reason=reason,
         )
-
     # 2. Score calculation using component weights and Gaussian noise (spec Section 9.1 & 9.2)
     p_config = PERSONA_CONFIGS[input_data.persona]
     noise = rng.normal(0, p_config.sigma_noise)
 
     w = CHURN_COMPONENT_WEIGHTS
-    churn_risk = (
-        input_data.base_rate
-        + input_data.event_score * w["event_score"]
+    sensitivity = (
+        LOW_SENSITIVITY_CHURN_SLOPE
+        if input_data.low_sensitivity_segment
+        else 1.0
+    )
+
+    behavioral_risk = (
+        input_data.event_score * w["event_score"]
         + input_data.trend_score * w["trend_score"]
         + input_data.product_score * w["product_score"]
         + input_data.complaint_score * w["complaint_score"]
         + input_data.loan_stress_score * w["loan_stress_score"]
         + input_data.digital_inactivity_score * w["digital_inactivity_score"]
-        + noise
     )
 
+    churn_risk = input_data.base_rate + sensitivity * behavioral_risk + noise
     churn_prob = sigmoid(churn_risk)
 
     # 3. Churn Status Decision (Bernoulli or Persona Threshold check)
