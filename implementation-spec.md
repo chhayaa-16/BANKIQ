@@ -406,14 +406,17 @@ Affected tables:
 For each customer-month:
 
 ```python
-churn_risk = base_rate
-           + event_score
-           + trend_score
-           + product_score
-           + complaint_score
-           + loan_stress_score
-           + digital_inactivity_score
-           + noise
+behavioral_risk = (
+    event_score * 0.30
+    + trend_score * 0.15
+    + product_score * -0.10
+    + complaint_score * 0.25
+    + loan_stress_score * 0.20
+    + digital_inactivity_score * 0.15
+)
+
+sensitivity = LOW_SENSITIVITY_CHURN_SLOPE if low_sensitivity_segment else 1.0
+churn_risk = base_rate + sensitivity * behavioral_risk + noise
 ```
 
 Then apply either:

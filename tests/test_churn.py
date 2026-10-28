@@ -251,3 +251,32 @@ def test_threshold_vs_bernoulli_churn():
 
     # With prob ~0.5 over 500 trials, churns should be roughly centered
     assert 150 < bernoulli_churns < 350
+
+
+def test_more_products_reduce_churn_risk():
+    """More held products should reduce churn risk through the negative product weight."""
+    low_products = ChurnInput(
+        persona=Persona.SALARY_CORE,
+        base_rate=0.1,
+        product_score=0.2,
+    )
+    high_products = ChurnInput(
+        persona=Persona.SALARY_CORE,
+        base_rate=0.1,
+        product_score=0.8,
+    )
+
+    low_result = calculate_churn(
+        low_products, np.random.default_rng(123), use_threshold=True
+    )
+    high_result = calculate_churn(
+        high_products, np.random.default_rng(123), use_threshold=True
+    )
+
+    expected_difference = (0.8 - 0.2) * CHURN_COMPONENT_WEIGHTS["product_score"]
+    assert math_close(
+        high_result.churn_risk - low_result.churn_risk,
+        expected_difference,
+    )
+    assert high_result.churn_risk < low_result.churn_risk
+    assert high_result.churn_prob < low_result.churn_prob

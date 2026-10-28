@@ -1323,7 +1323,7 @@ def run_simulation(
                 low_sensitivity_segment=spine_state[cid]["low_sensitivity_segment"],
                 event_score=float(len(customer_events[cid]) * 0.1),
                 trend_score=0.0,
-                product_score=float((10 - sum(product_holdings[cid].values())) / 10.0),
+                product_score=float(sum(product_holdings[cid].values()) / 10.0),
                 complaint_score=float((cc_6m * 0.15) + (open_comps * 0.25)),
                 loan_stress_score=float(ln_dpd / 90.0),
                 digital_inactivity_score=float(dig_inactive * 0.2),
