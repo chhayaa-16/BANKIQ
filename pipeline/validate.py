@@ -286,6 +286,7 @@ def run_validations(db_path: str) -> bool:
     print("\n--- 4. POST-CHURN INACTIVITY CHECKS ---")
     monthly_tables_date_col = {
         "account_monthly_snapshot": "snapshot_month",
+        "transaction_fact": "txn_month",
         "card_monthly_snapshot": "snapshot_month",
         "loan_monthly_snapshot": "snapshot_month",
         "product_holdings_monthly": "snapshot_month",
