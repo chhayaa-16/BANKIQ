@@ -25,3 +25,6 @@ data/
 # AI 
 AGENTS.md
 /skills
+
+# Local backup files
+*.backup

@@ -311,7 +311,7 @@ def generate_feature_snapshots(
                 / pl.col("avg_txn_prior")
             )
             .otherwise(0.0)
-            .round(4)
+            .round(4, mode="half_away_from_zero")
             .alias("txn_count_change_3m"),
             pl.when(pl.col("avg_login_prior") > 0)
             .then(
@@ -319,7 +319,7 @@ def generate_feature_snapshots(
                 / pl.col("avg_login_prior")
             )
             .otherwise(0.0)
-            .round(4)
+            .round(4, mode="half_away_from_zero")
             .alias("login_count_change_6m"),
             pl.coalesce(pl.col("dorm_days_m1"), 180)
             .cast(pl.Int32)
@@ -422,7 +422,11 @@ def generate_feature_snapshots(
         ]
     )
     base_df = base_df.join(card_util_df, on=["customer_id", "as_of_month"], how="left")
-    base_df = base_df.with_columns(pl.col("credit_utilization").fill_null(0.0).round(4))
+    base_df = base_df.with_columns(
+        pl.col("credit_utilization")
+        .fill_null(0.0)
+        .round(4, mode="half_away_from_zero")
+    )
 
     # 9. emi_to_income_ratio
     loan_emi_monthly = loan_snapshots.group_by(["customer_id", "snapshot_month"]).agg(
